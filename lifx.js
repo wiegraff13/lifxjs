@@ -71,56 +71,62 @@ Lifx.prototype.stopDiscovery = function() {
 	clearInterval(this._intervalID);
 };
 
-Lifx.prototype._setupPacketListener = function() {
-	var self = this;
+Lifx.prototype._setupPacketListener = function () {
+    var self = this;
 
-	this.on('rawpacket', function(pkt, rinfo) {
-		switch (pkt.packetTypeShortName) {
+    this.on('rawpacket', function (pkt, rinfo) {
+        switch (pkt.packetTypeShortName) {
 
-			case 'panGateway':
-				// Got a notification of a gateway.  Check if it's new, using valid UDP, and if it is then handle accordingly
-				if (pkt.payload.service == 1 && pkt.payload.port > 0) {
-					var gw = {ip:rinfo.address, port:pkt.payload.port, site:pkt.preamble.site};
-					var found = false;
-					for (var i in self.gateways) {
-						if (self.gateways[i].ip == gw.ip && self.gateways[i].port == gw.port) {
-							found = true;
-							break;
-						}
-					}
-					if (!found) {
-						self.gateways.push(gw);
-						self.emit('gateway', gw);
-					}
-				}
-				break;
+            case 'panGateway':
+                // Got a notification of a gateway.  Check if it's new, using valid UDP, and if it is then handle accordingly
+                if (pkt.payload.service == 1 && pkt.payload.port > 0) {
+                    var gw = { ip: rinfo.address, port: pkt.payload.port, site: pkt.preamble.site };
+                    var found = false;
+                    for (var i in self.gateways) {
+                        if (self.gateways[i].ip == gw.ip && self.gateways[i].port == gw.port) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        self.gateways.push(gw);
+                        self.emit('gateway', gw);
+                    }
+                }
+                break;
 
-			case 'lightStatus':
-				// Got a notification of a light's status.  Check if it's a new light, and handle it accordingly.
-				var bulb = {addr:pkt.preamble.bulbAddress, name:pkt.payload.bulbLabel};
-				var found = false;
-				for (var i in self.bulbs) {
-					if (self.bulbs[i].addr == bulb.addr) {
-						found = true;
-						break;
-					}
-				}
-				if (!found) {
-					self.bulbs.push(bulb);
-					self.emit('bulb', bulb);
-				}
+            case 'lightStatus':
+                // Got a notification of a light's status.  Check if it's a new light, and handle it accordingly.
+                var bulb = { addr: pkt.preamble.bulbAddress, name: pkt.payload.bulbLabel };
+                var found = false;
+                for (var i in self.bulbs) {
+                    if (self.bulbs[i].addr == bulb.addr) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    self.bulbs.push(bulb);
+                    self.emit('bulb', bulb);
+                }
 
-				// Even if it's not new, emit updated info about the state of the bulb
-				self.emit('bulbstate', bulb);
+                // Even if it's not new, emit updated info about the state of the bulb
+                self.emit('bulbstate', { bulb: bulb, state: pkt.payload });
 
-				break;
+                break;
 
-			default:
-				console.log('Unhandled packet of type ['+pkt.packetTypeShortName+']');
-				console.log(pkt.payload);
-				break;
-		}
-	});
+            case 'powerState':
+                self.emit('powerState', { addr: pkt.preamble.bulbAddress, state: pkt.payload });
+                break;
+
+            default:
+                if (debug) {
+                    console.log('Unhandled packet of type [' + pkt.packetTypeShortName + ']');
+                    console.log(pkt.payload);
+                }
+                break;
+        }
+    });
 
 };
 
@@ -211,6 +217,7 @@ Lifx.prototype.requestStatus = function() {
 
 module.exports = {
 	init:init,
+    packet: packet,
 	setDebug:function(d){debug=d;}
 };
 

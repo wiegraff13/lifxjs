@@ -1,4 +1,5 @@
-!!! Recently updated for firmware v1.2
+!!! PLEASE NOTE this has been updated for firmware v1.2, but I don't have any
+v1.1 bulbs so I can't test if it still works pre-upgrade
 
 # JS library for LIFX bulbs
 
