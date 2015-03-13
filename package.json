@@ -1,10 +1,15 @@
 {
   "name": "lifx",
+<<<<<<< HEAD
   "version": "0.2.1",
   "author": {
     "name": "Kevin Bowman",
     "email": "npm@magicmonkey.org"
   },
+=======
+  "version": "0.3.1",
+  "author": "Kevin Bowman <npm@magicmonkey.org>",
+>>>>>>> cfb4814d447d119a4db410274499d8ee77f66d96
   "description": "a library to control LIFX wifi lightbulbs",
   "main": "./lifx.js",
   "repository": {
@@ -27,6 +32,7 @@
     "bulb",
     "lightbulb"
   ],
+<<<<<<< HEAD
   "dependencies": {
     "clone": "*"
   },
@@ -35,4 +41,10 @@
   "homepage": "https://github.com/magicmonkey/lifxjs",
   "_id": "lifx@0.2.1",
   "_from": "lifx@"
+=======
+  "dependencies" : {
+    "clone" : "*",
+    "underscore": "1.6"
+  }
+>>>>>>> cfb4814d447d119a4db410274499d8ee77f66d96
 }

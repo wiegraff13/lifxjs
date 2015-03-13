@@ -1,10 +1,10 @@
-var dgram = require('dgram');
-var net = require('net');
-var util = require('util');
+var dgram  = require('dgram');
+var net    = require('net');
+var util   = require('util');
 var events = require('events');
-var clone = require('clone');
-var os = require('os');
-
+var clone  = require('clone');
+var os     = require('os');
+var _      = require('underscore');
 var packet = require('./packet');
 
 var port = 56700;
@@ -21,8 +21,8 @@ function init() {
 
 function Lifx() {
 	events.EventEmitter.call(this);
-	this.gateways = [];
-	this.bulbs = [];
+	this.gateways = {};     // hash of gateway ids to gateway objects
+	this.bulbs = {};        // hash of bulb ids to bulb objects
 	this.udpClient = dgram.createSocket("udp4");
 	this._intervalID = null;
 	this._localIPs = getMyIPs();
@@ -30,7 +30,7 @@ function Lifx() {
 	this._setupPacketListener();
 	this._setupGatewayListener();
 }
-Lifx.prototype.__proto__ = events.EventEmitter.prototype;
+require('util').inherits(Lifx, require('events').EventEmitter);
 
 Lifx.prototype._initNetwork = function() {
 	var self = this;
@@ -55,7 +55,7 @@ Lifx.prototype._initNetwork = function() {
 
 Lifx.prototype._sendPacket = function(dstIp, dstPort, packet) {
 	if (debug) console.log(" U+ " + packet.toString("hex"));
-	this.udpClient.send(packet, 0, packet.length, dstPort, dstIp, function(err, bytes) {
+	this.udpClient.send(packet, 0, packet.length, dstPort, dstIp, function(err, bytes) {/* jshint unused: false */
 	});
 }
 
@@ -71,62 +71,76 @@ Lifx.prototype.stopDiscovery = function() {
 	clearInterval(this._intervalID);
 };
 
-Lifx.prototype._setupPacketListener = function () {
-    var self = this;
+Lifx.prototype._setupPacketListener = function() {
+	var self = this;
 
-    this.on('rawpacket', function (pkt, rinfo) {
-        switch (pkt.packetTypeShortName) {
+	this.on('rawpacket', function(pkt, rinfo) {
+                var bulb, found = false, i;
 
-            case 'panGateway':
-                // Got a notification of a gateway.  Check if it's new, using valid UDP, and if it is then handle accordingly
-                if (pkt.payload.service == 1 && pkt.payload.port > 0) {
-                    var gw = { ip: rinfo.address, port: pkt.payload.port, site: pkt.preamble.site };
-                    var found = false;
-                    for (var i in self.gateways) {
-                        if (self.gateways[i].ip == gw.ip && self.gateways[i].port == gw.port) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        self.gateways.push(gw);
-                        self.emit('gateway', gw);
-                    }
-                }
-                break;
+		switch (pkt.packetTypeShortName) {
 
-            case 'lightStatus':
-                // Got a notification of a light's status.  Check if it's a new light, and handle it accordingly.
-                var bulb = { addr: pkt.preamble.bulbAddress, name: pkt.payload.bulbLabel };
-                var found = false;
-                for (var i in self.bulbs) {
-                    if (self.bulbs[i].addr == bulb.addr) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    self.bulbs.push(bulb);
-                    self.emit('bulb', bulb);
-                }
+			case 'panGateway':
+				// Got a notification of a gateway.  Check if it's new, using valid UDP, and if it is then handle accordingly
+				if (pkt.payload.service == 1 && pkt.payload.port > 0) {
+					var gw = {ip:rinfo.address, port:pkt.payload.port, site:pkt.preamble.site, 
+							service: pkt.payload.service,
+							protocol: pkt.preamble.protocol,
+							bulbAddress: pkt.preamble.bulbAddress.toString("hex")
+						};
+					
+					if (!self.gateways[gw.ip]) {
+						//console.log(JSON.stringify(gw));
+						self.gateways[gw.ip] = gw;
+						self.emit('gateway', gw);
+					}
+				}
+				break;
 
-                // Even if it's not new, emit updated info about the state of the bulb
-                self.emit('bulbstate', { bulb: bulb, state: pkt.payload });
+			case 'lightStatus':
+				// Got a notification of a light's status.  Check if it's a new light, and handle it accordingly.
+				var bulb = self.bulbs[pkt.preamble.bulbAddress.toString('hex')];
+				if (bulb) {
+					bulb.state = pkt.payload;
+				}
+				else {
+					bulb = {addr:pkt.preamble.bulbAddress, name:pkt.payload.bulbLabel, state: pkt.payload};
+					self.bulbs[bulb.addr.toString('hex')] = bulb;
+					self.emit('bulb', bulb);
+				}
 
-                break;
+				// Even if it's not new, emit updated info about the state of the bulb
+                                bulb.state = { hue:        pkt.payload.hue,
+                                               saturation: pkt.payload.saturation,
+                                               brightness: pkt.payload.brightness,
+                                               kelvin:     pkt.payload.kelvin,
+                                               dim:        pkt.payload.dim,
+                                               power:      pkt.payload.power,
+                                             };
+				self.emit('bulbstate', bulb);
+				break;
 
-            case 'powerState':
-                self.emit('powerState', { addr: pkt.preamble.bulbAddress, state: pkt.payload });
-                break;
+			case 'powerState':
+				bulb = {addr:pkt.preamble.bulbAddress, state: {power: pkt.payload.onoff}}
+				self.emit('bulbpower', bulb);
+				break;
 
-            default:
-                if (debug) {
-                    console.log('Unhandled packet of type [' + pkt.packetTypeShortName + ']');
-                    console.log(pkt.payload);
-                }
-                break;
-        }
-    });
+			case 'bulbLabel':
+				bulb = {addr:pkt.preamble.bulbAddress, name:pkt.payload.label}
+				self.emit('bulblabel', bulb);
+				break;
+
+			case 'getPanGateway':
+				break;
+
+			default:
+				if (debug) {
+					console.log('Unhandled packet of type ['+pkt.packetTypeShortName+']');
+					console.log(pkt.payload);
+				}
+				self.emit('packet', pkt);
+				break;
+		}
+	});
 
 };
 
@@ -143,7 +157,6 @@ Lifx.prototype._setupGatewayListener = function() {
 };
 
 Lifx.prototype.close = function() {
-	var self = this;
 	// Remove things from the event loop and clean up
 	this.stopDiscovery();
 	this.udpClient.close();
@@ -151,34 +164,34 @@ Lifx.prototype.close = function() {
 
 Lifx.prototype._sendToOneOrAll = function(command, bulb) {
 	var self = this;
-	this.gateways.forEach(function(gw) {
+	
+//	var gw = this.gateways["192.168.0.103"];
+	
+	var bulbAddress = null;
+
+	if (typeof bulb != 'undefined') {
+		// Overwrite the bulb address here
+		if (Buffer.isBuffer(bulb)) {
+			bulbAddress = bulb;
+		} else if (typeof bulb.addr != 'undefined') {
+			bulbAddress = bulb.addr;
+		} else {
+			// Check if it's a hex string of a known bulb addr
+			var b = self.bulbs[bulb]
+			if (b) {
+				bulbAddress = b.addr;
+			}
+			else {
+				throw "Unknown bulb: " + bulb;
+			}
+		}
+		bulbAddress.copy(command, 8);
+	}
+
+	_(this.gateways).each(function(gw, ip) {
 		var siteAddress = gw.site;
 		siteAddress.copy(command, 16);
-		if (typeof bulb == 'undefined') {
-			self._sendPacket(gw.ip, gw.port, command);
-		} else {
-			// Overwrite the bulb address here
-			var target;
-			if (Buffer.isBuffer(bulb)) {
-				target = bulb;
-			} else if (typeof bulb.addr != 'undefined') {
-				target = bulb.addr;
-			} else {
-				// Check if it's a recognised bulb name
-				var found = false;
-				self.bulbs.forEach(function(b) {
-					if (b.name == bulb) {
-						target = b.addr;
-						found = true;
-					}
-				});
-				if (!found) {
-					throw "Unknown bulb: " + bulb;
-				}
-			}
-			target.copy(command, 8);
-			self._sendPacket(gw.ip, gw.port, command);
-		}
+		self._sendPacket(gw.ip, gw.port, command);
 	});
 };
 
@@ -194,12 +207,12 @@ Lifx.prototype.sendToOne = function(command, bulb) {
 
 // Turn lights on
 Lifx.prototype.lightsOn = function(bulb) {
-	this._sendToOneOrAll(packet.setPowerState({onoff:0xff}), bulb);
+	this._sendToOneOrAll(packet.setPowerState({onoff:0xff, protocol: 0x1400}), bulb);
 };
 
 // Turn lights off
 Lifx.prototype.lightsOff = function(bulb) {
-	this._sendToOneOrAll(packet.setPowerState({onoff:0}), bulb);
+	this._sendToOneOrAll(packet.setPowerState({onoff:0, protocol: 0x1400}), bulb);
 };
 
 // Set bulbs to a particular colour

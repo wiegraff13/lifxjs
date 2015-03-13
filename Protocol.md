@@ -59,14 +59,14 @@ packet
 {
   uint16 size;              // LE
   uint16 protocol;
-  uint32 reserved1;         // Always 0x0000
+  uint32 reserved1;         // Always 0
   byte   target_mac_address[6];
-  uint16 reserved2;         // Always 0x00
+  uint16 reserved2;         // Always 0
   byte   site[6];           // MAC address of gateway PAN controller bulb
-  uint16 reserved3;         // Always 0x00
+  uint16 reserved3;         // Always 0
   uint64 timestamp;
   uint16 packet_type;       // LE
-  uint16 reserved4;         // Always 0x0000
+  uint16 reserved4;         // Always 0
 
   varies payload;           // Documented below per packet type
 }
@@ -75,9 +75,15 @@ packet
 ## List of packet types
 
 ### Network management
+ * 0x01 - Set site - app to bulb
  * [0x02 - Get PAN gateway](#0x02) - app to bulb
  * [0x03 - PAN gateway](#0x03) - bulb to app
 
+### Time
+ * [0x04 - Get time](#0x04) - app to bulb
+ * [0x05 - Set time](#0x05) - app to bulb
+ * [0x06 - Time state](#0x06) - bulb to app
+ 
 ### Power management
  * [0x14 - Get power state](#0x14) - app to bulb 
  * [0x15 - Set power state](#0x15) - app to bulb
@@ -112,13 +118,12 @@ packet
  * [0x67 - Set waveform](#0x67) - app to bulb
  * [0x68 - Set dim (absolute)](#0x68) - app to bulb
  * [0x69 - Set dim (relative)](#0x69) - app to bulb
+ * [0x6a - Set light color (RGBW)](#0x6a) - app to bulb
  * [0x6b - Light status](#0x6b) - bulb to app
-
-### Time
- * [0x04 - Get time](#0x04) - app to bulb
- * [0x05 - Set time](#0x05) - app to bulb
- * [0x06 - Time state](#0x06) - bulb to app
-
+ * [0x6e - Get temperature](#0x6e) - app to bulb
+ * [0x6f - Temperature state](#0x6f) - bulb to app
+ * 0x70 - Set calibration coefficients - app to bulb
+ 
 ### Diagnostic
  * [0x07 - Get reset switch](#0x07) - app to bulb
  * [0x08 - Reset switch state](#0x08) - bulb to app
@@ -138,6 +143,13 @@ packet
  * [0x26 - Reboot](#0x26) - app to bulb
  * [0x27 - Set Factory Test Mode](#0x27) - app to bulb
  * [0x28 - Disable Factory Test Mode](#0x28) - app to bulb
+ * 0x29 - Factory Test Mode State - bulb to app
+ * 0x6c - Get rail voltage - app to bulb
+ * 0x6d - Rail voltage state - bulb to app
+ * 0x191 - Get ambient light - app to bulb
+ * 0x192 - Ambient light state - bulb to app
+ * 0x193 - Get dimmer voltage - app to bulb
+ * 0x194 - Dimmer voltage state - bulb to app
 
 ## Description of packet types
  
@@ -732,7 +744,7 @@ payload {
   uint16 saturation;  // LE
   uint16 brightness;  // LE
   uint16 kelvin;      // LE i.e. colour temperature (whites wheel in apps)
-  uint32 fade_time;   // LE Length of fade action, in seconds
+  uint32 fade_time;   // LE Length of fade action, in milliseconds
 }
 ```
 
@@ -766,6 +778,8 @@ payload {
 
 Sent to a bulb to set its dim level.
 
+WARNING: It has been reported that power supply damage can result from incorrect use of this command. See https://github.com/magicmonkey/lifxjs/issues/17
+
 #### Payload (6 bytes)
 
 ```c
@@ -779,12 +793,29 @@ payload {
 
 Sent to a bulb to set its dim level, relative to the current value.
 
+WARNING: It has been reported that power supply damage can result from incorrect use of this command. See https://github.com/magicmonkey/lifxjs/issues/17
+
 #### Payload (6 bytes)
 
 ```c
 payload {
   int16 brightness; // LE
   uint32 duration; // in seconds
+}
+```
+
+### <a name="0x6a"></a>0x6a - Set light color (RGBW)
+
+Sent to a bulb to set its color, via RGBW values (as opposed to [HSBK](#0x66)).
+
+#### Payload (8 bytes)
+
+```c
+payload {
+  uint16 blue;
+  uint16 green;
+  uint16 red;
+  uint16 white;
 }
 ```
 
@@ -805,6 +836,30 @@ payload {
   uint16 power;
   char bulb_label[32]; // UTF-8 encoded string
   uint64 tags;
+}
+```
+
+### <a name="0x6e"></a>0x6e - Get light temperature
+
+Sent to a bulb to request its current light temperature.
+
+#### Payload (0 bytes)
+
+```c
+payload {
+  // None
+}
+```
+
+### <a name="0x6f"></a>0x6f - Light temperature
+
+Received from a bulb after a request for its light temperature.
+
+#### Payload (2 bytes)
+
+```c
+payload {
+  uint16 temperature;
 }
 ```
 
