@@ -682,6 +682,32 @@ packets = {
 			{name:"temerature" , type:type.uint16_le},
 		]
 	},
+    0x74: {
+		name:"Get power state (2.0)",
+		shortname:"getPowerState2",
+		length:0,
+		fields:[]
+	},
+	0x75: {
+		name:"Set power state (2.0)",
+		shortname:"setPowerState2",
+		length:6,
+		fields:[
+			{name:"onoff", type:type.uint16},
+            {name:"reserved1", type:type.uint16},
+            {name:"reserved2", type:type.uint16},
+		]
+	},
+	0x76: {
+		name:"Power state (2.0)",
+		shortname:"powerState2",
+		length:6,
+		fields:[
+			{name:"onoff", type:type.uint16},
+            {name:"reserved1", type:type.uint16},
+            {name:"reserved2", type:type.uint16},
+		]
+	},
 	0xcb: {
 		name:"Wan State Connect",
 		shortname:"wanStateConnect",
