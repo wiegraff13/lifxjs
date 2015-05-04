@@ -19,6 +19,10 @@ packet.polyfill = function() {
 packet.fromBytes = function(b) {
 	var newPacket = {preamble:{}, payload:{}};
 
+    // Check for minimum packet size
+    if (b.length < 36)
+        return;
+
 	// First parse the preamble
 	var runningPlace = 0;
 	for (var i=0; i<preambleFields.length; i++) {
@@ -790,10 +794,9 @@ packets = {
 			{name:"strength"        , type:type.uint16}  ,
 			{name:"channel"         , type:type.uint16}  ,
 		]
-	},
+	}
 };
 
 packet.polyfill();
 
 module.exports = packet;
-

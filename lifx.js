@@ -45,7 +45,8 @@ Lifx.prototype._initNetwork = function() {
 		}
 		if (debug) console.log(" U- " + msg.toString("hex"));
 		var pkt = packet.fromBytes(msg);
-		self.emit('rawpacket', pkt, rinfo);
+        if (pkt)
+		    self.emit('rawpacket', pkt, rinfo);
 	});
 	this.udpClient.bind(port, "0.0.0.0", function() {
 		self.udpClient.setBroadcast(true);
@@ -114,7 +115,7 @@ Lifx.prototype._setupPacketListener = function() {
                                                brightness: pkt.payload.brightness,
                                                kelvin:     pkt.payload.kelvin,
                                                dim:        pkt.payload.dim,
-                                               power:      pkt.payload.power,
+                                               power:      pkt.payload.power
                                              };
 				self.emit('bulbstate', bulb);
 				break;
@@ -227,6 +228,12 @@ Lifx.prototype.lightsColour = function(hue, sat, lum, whitecol, timing, bulb) {
 Lifx.prototype.requestStatus = function() {
 	this._sendToOneOrAll(packet.getLightState());
 };
+
+// Discover on demand
+Lifx.prototype.discover = function() {
+    self.stopDiscovery();
+    self.startDiscovery(1000);
+}
 
 module.exports = {
 	init:init,
