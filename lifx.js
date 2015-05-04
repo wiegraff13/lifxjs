@@ -236,9 +236,12 @@ Lifx.prototype.discover = function() {
 }
 
 module.exports = {
-	init:init,
+    init: init,
     packet: packet,
-	setDebug:function(d){debug=d;}
+    setDebug: function (d) {
+        debug = d;
+        packet.setDebug(d);
+    }
 };
 
 // Utility method to get a list of local IP addresses

@@ -1,5 +1,8 @@
 packet = {
+    setDebug:function(d){debug=d;}
 }
+
+var debug = false;
 
 packet.polyfill = function() {
 	for (var i in packets) {
@@ -16,105 +19,107 @@ packet.polyfill = function() {
 	}
 }
 
-packet.fromBytes = function(b) {
-	var newPacket = {preamble:{}, payload:{}};
+packet.fromBytes = function (b) {
+    var newPacket = { preamble: {}, payload: {} };
 
     // Check for minimum packet size
     if (b.length < 36)
         return;
 
-	// First parse the preamble
-	var runningPlace = 0;
-	for (var i=0; i<preambleFields.length; i++) {
-		var f = preambleFields[i];
-		newPacket.preamble[f.name] = f.type.parse(b, runningPlace);
-		runningPlace += f.type.size;
-	}
+    // First parse the preamble
+    var runningPlace = 0;
+    for (var i = 0; i < preambleFields.length; i++) {
+        var f = preambleFields[i];
+        newPacket.preamble[f.name] = f.type.parse(b, runningPlace);
+        runningPlace += f.type.size;
+    }
 
-	// Now parse the packet-specific bytes
-	var pParser = packets[newPacket.preamble.packetType];
-	if (typeof pParser == 'undefined') {
-		console.log("Unknown packet type "+newPacket.preamble.packetType);
-	} else {
-		newPacket.packetTypeName = pParser.name;
-		newPacket.packetTypeShortName = pParser.shortname;
-		for (var i=0; i<pParser.fields.length; i++) {
-			var f = pParser.fields[i];
-			newPacket.payload[f.name] = f.type.parse(b, runningPlace);
-			runningPlace += f.type.size;
-		}
-	}
+    // Now parse the packet-specific bytes
+    var pParser = packets[newPacket.preamble.packetType];
+    if (typeof pParser == 'undefined') {
+        if (debug)
+            console.log("Unknown packet type " + newPacket.preamble.packetType);
+    } else {
+        newPacket.packetTypeName = pParser.name;
+        newPacket.packetTypeShortName = pParser.shortname;
+        for (var i = 0; i < pParser.fields.length; i++) {
+            var f = pParser.fields[i];
+            newPacket.payload[f.name] = f.type.parse(b, runningPlace);
+            runningPlace += f.type.size;
+        }
+    }
 
-	return newPacket;
+    return newPacket;
 };
 
-packet.fromParams = function(p) {
-	if (typeof p.type == 'undefined') {
-		console.log("Unknown packet type requested");
-		return;
-	}
+packet.fromParams = function (p) {
+    if (typeof p.type == 'undefined') {
+        if (debug)
+            console.log("Unknown packet type requested");
+        return;
+    }
 
-	var pParser;
-	for (var i in packets) {
-		if (packets[i].shortname == p.type) {
-			pParser = packets[i];
-			pParser.packetType = i;
-			break;
-		}
-	}
+    var pParser;
+    for (var i in packets) {
+        if (packets[i].shortname == p.type) {
+            pParser = packets[i];
+            pParser.packetType = i;
+            break;
+        }
+    }
 
-	var newPacket = new Buffer(36 + pParser.length);
-	var newPacketPayload = newPacket.slice(36);
+    var newPacket = new Buffer(36 + pParser.length);
+    var newPacketPayload = newPacket.slice(36);
 
-	// Generate packet-specific data
-	var runningPlace = 0;
-	for (var i=0; i<pParser.fields.length; i++) {
-		pParser.fields[i].type.unparse(newPacketPayload, runningPlace, p[pParser.fields[i].name]);
-		runningPlace += pParser.fields[i].type.size;
-	}
-	
-	// Generate preamble
-	var runningPlace = 0;
-	for (var i=0; i<preambleFields.length; i++) {
-		var f = preambleFields[i];
-		var datum;
-		switch (f.name) {
-			case 'size':
-				datum = 36 + pParser.length;
-				break;
-			case 'protocol':
-				if (typeof p[f.name] == 'undefined') {
-//					datum = 0x5400;
-					datum = 0x3400;
-//					datum = 0x1400;
-				} else {
-					datum = p[f.name];
-				}
-				break;
-			case 'bulbAddress':
-			case 'site':
-				if (typeof p[f.name] == 'undefined') {
-					datum = new Buffer([0,0,0,0,0,0]);
-				} else {
-					datum = p[f.name];
-				}
-				break;
-			case 'reserved1':
-			case 'reserved2':
-			case 'reserved3':
-			case 'reserved4':
-			case 'timestamp':
-				datum = new Buffer(f.type.size);
-				datum.fill(0);
-				break;
-			case 'packetType':
-				datum = pParser.packetType;
-				break;
-		}
-		f.type.unparse(newPacket, runningPlace, datum);
-		runningPlace += f.type.size;
-	}
-	return newPacket;
+    // Generate packet-specific data
+    var runningPlace = 0;
+    for (var i = 0; i < pParser.fields.length; i++) {
+        pParser.fields[i].type.unparse(newPacketPayload, runningPlace, p[pParser.fields[i].name]);
+        runningPlace += pParser.fields[i].type.size;
+    }
+
+    // Generate preamble
+    var runningPlace = 0;
+    for (var i = 0; i < preambleFields.length; i++) {
+        var f = preambleFields[i];
+        var datum;
+        switch (f.name) {
+            case 'size':
+                datum = 36 + pParser.length;
+                break;
+            case 'protocol':
+                if (typeof p[f.name] == 'undefined') {
+                    //					datum = 0x5400;
+                    datum = 0x3400;
+                    //					datum = 0x1400;
+                } else {
+                    datum = p[f.name];
+                }
+                break;
+            case 'bulbAddress':
+            case 'site':
+                if (typeof p[f.name] == 'undefined') {
+                    datum = new Buffer([0, 0, 0, 0, 0, 0]);
+                } else {
+                    datum = p[f.name];
+                }
+                break;
+            case 'reserved1':
+            case 'reserved2':
+            case 'reserved3':
+            case 'reserved4':
+            case 'timestamp':
+                datum = new Buffer(f.type.size);
+                datum.fill(0);
+                break;
+            case 'packetType':
+                datum = pParser.packetType;
+                break;
+        }
+        f.type.unparse(newPacket, runningPlace, datum);
+        runningPlace += f.type.size;
+    }
+    return newPacket;
 };
 
 type = {
