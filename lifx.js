@@ -231,8 +231,8 @@ Lifx.prototype.requestStatus = function() {
 
 // Discover on demand
 Lifx.prototype.discover = function() {
-    self.stopDiscovery();
-    self.startDiscovery(1000);
+    this.stopDiscovery();
+    this.startDiscovery(1000);
 }
 
 module.exports = {
