@@ -72,76 +72,81 @@ Lifx.prototype.stopDiscovery = function() {
 	clearInterval(this._intervalID);
 };
 
-Lifx.prototype._setupPacketListener = function() {
-	var self = this;
+Lifx.prototype._setupPacketListener = function () {
+    var self = this;
 
-	this.on('rawpacket', function(pkt, rinfo) {
-                var bulb, found = false, i;
+    this.on('rawpacket', function (pkt, rinfo) {
+        var bulb, found = false, i;
 
-		switch (pkt.packetTypeShortName) {
+        switch (pkt.packetTypeShortName) {
 
-			case 'panGateway':
-				// Got a notification of a gateway.  Check if it's new, using valid UDP, and if it is then handle accordingly
-				if (pkt.payload.service == 1 && pkt.payload.port > 0) {
-					var gw = {ip:rinfo.address, port:pkt.payload.port, site:pkt.preamble.site, 
-							service: pkt.payload.service,
-							protocol: pkt.preamble.protocol,
-							bulbAddress: pkt.preamble.bulbAddress.toString("hex")
-						};
-					
-					if (!self.gateways[gw.ip]) {
-						//console.log(JSON.stringify(gw));
-						self.gateways[gw.ip] = gw;
-						self.emit('gateway', gw);
-					}
-				}
-				break;
+            case 'panGateway':
+                // Got a notification of a gateway.  Check if it's new, using valid UDP, and if it is then handle accordingly
+                if (pkt.payload.service == 1 && pkt.payload.port > 0) {
+                    var gw = { ip: rinfo.address, port: pkt.payload.port, site: pkt.preamble.site,
+                        service: pkt.payload.service,
+                        protocol: pkt.preamble.protocol,
+                        bulbAddress: pkt.preamble.bulbAddress.toString("hex")
+                    };
 
-			case 'lightStatus':
-				// Got a notification of a light's status.  Check if it's a new light, and handle it accordingly.
-				var bulb = self.bulbs[pkt.preamble.bulbAddress.toString('hex')];
-				if (bulb) {
-					bulb.state = pkt.payload;
-				}
-				else {
-					bulb = {addr:pkt.preamble.bulbAddress, name:pkt.payload.bulbLabel, state: pkt.payload};
-					self.bulbs[bulb.addr.toString('hex')] = bulb;
-					self.emit('bulb', bulb);
-				}
+                    if (!self.gateways[gw.ip]) {
+                        //console.log(JSON.stringify(gw));
+                        self.gateways[gw.ip] = gw;
+                        self.emit('gateway', gw);
+                    }
+                }
+                break;
 
-				// Even if it's not new, emit updated info about the state of the bulb
-                                bulb.state = { hue:        pkt.payload.hue,
-                                               saturation: pkt.payload.saturation,
-                                               brightness: pkt.payload.brightness,
-                                               kelvin:     pkt.payload.kelvin,
-                                               dim:        pkt.payload.dim,
-                                               power:      pkt.payload.power
-                                             };
-				self.emit('bulbstate', bulb);
-				break;
+            case 'lightStatus':
+                // Got a notification of a light's status.  Check if it's a new light, and handle it accordingly.
+                var bulb = self.bulbs[pkt.preamble.bulbAddress.toString('hex')];
+                if (bulb) {
+                    bulb.state = pkt.payload;
+                }
+                else {
+                    bulb = { addr: pkt.preamble.bulbAddress, name: pkt.payload.bulbLabel, state: pkt.payload };
+                    self.bulbs[bulb.addr.toString('hex')] = bulb;
+                    self.emit('bulb', bulb);
+                }
 
-			case 'powerState':
-				bulb = {addr:pkt.preamble.bulbAddress, state: {power: pkt.payload.onoff}}
-				self.emit('bulbpower', bulb);
-				break;
+                // Even if it's not new, emit updated info about the state of the bulb
+                bulb.state = { hue: pkt.payload.hue,
+                    saturation: pkt.payload.saturation,
+                    brightness: pkt.payload.brightness,
+                    kelvin: pkt.payload.kelvin,
+                    dim: pkt.payload.dim,
+                    power: pkt.payload.power
+                };
+                self.emit('bulbstate', bulb);
+                break;
 
-			case 'bulbLabel':
-				bulb = {addr:pkt.preamble.bulbAddress, name:pkt.payload.label}
-				self.emit('bulblabel', bulb);
-				break;
+            case 'powerState':
+                bulb = { addr: pkt.preamble.bulbAddress, state: { power: pkt.payload.onoff} }
+                self.emit('bulbpower', bulb);
+                break;
 
-			case 'getPanGateway':
-				break;
+            case 'bulbLabel':
+                bulb = { addr: pkt.preamble.bulbAddress, name: pkt.payload.label }
+                self.emit('bulblabel', bulb);
+                break;
 
-			default:
-				if (debug) {
-					console.log('Unhandled packet of type ['+pkt.packetTypeShortName+']');
-					console.log(pkt.payload);
-				}
-				self.emit('packet', pkt);
-				break;
-		}
-	});
+            case 'getPanGateway':
+                break;
+
+            case 'versionState':
+                bulb = { addr: pkt.preamble.bulbAddress, version: pkt.payload };
+                self.emit('version', bulb);
+                break;
+
+            default:
+                if (debug) {
+                    console.log('Unhandled packet of type [' + pkt.packetTypeShortName + ']');
+                    console.log(pkt.payload);
+                }
+                self.emit('packet', pkt);
+                break;
+        }
+    });
 
 };
 
